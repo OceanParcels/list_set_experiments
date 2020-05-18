@@ -20,5 +20,22 @@ Time adding 131072 particles (NumPy Array): 12.663392634999994
 Time delete and insert 131072 particles (NumPy Array): 52.743404987999995
 ```
 
+for beyond 1,000,000 entities, numbers are as follows:
+```
+Real list created.
+Time adding 1048576 particles (RealList): 123.48088695000001
+Time delete and insert 1048576 particles (RealList): 47.50684311899994
+Deleting 1048576 elements ...
+===========================================================================
+Ordered list created.
+Time adding 1048576 particles (OrderedList): 119.61499352699991
+Time delete and insert 1048576 particles (OrderedList): 51.41910386099994
+Deleting 1048576 elements ...
+===========================================================================
+Time adding 1048576 particles (NumPy Array): 1282.5754407159998
+Time delete and insert 1048576 particles (NumPy Array): 5043.001804089
+```
+
+
 As we can see, add-and-remove actions arbitrarily in the list are done very fast (as natural to linked lists and sets),
 while the fixed arrays and dense matrices in NumPy need to re-create and re-allocate memory all the time, hence the performance malus.
