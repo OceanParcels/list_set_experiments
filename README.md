@@ -1,5 +1,5 @@
 # List and Set Experiments
-An attempt to recreate the dynamism performance of C-like sets and lists (see Sedgwick book on Algorithms and Data Structures) in Python, to circumvent the performance malus of NumPy-like dense matrices and (fixed) arrays.
+An attempt to recreate the dynamism performance of C-like sets and lists (see Sedgewick book on [Algorithms in Java](https://algs4.cs.princeton.edu/home/) in [C++](https://www.amazon.com/Algorithms-Parts-1-4-Fundamentals-Structure/dp/0201350882/)) in Python, to circumvent the performance malus of NumPy-like dense matrices and (fixed) arrays.
 
 I try to use as much established libraries in Python (see 'bisect', 'sortedcollections' and 'sortedcontainers'), while preserving links to C-interaction (preferably just-in-time via CTypes).
 
