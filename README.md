@@ -36,7 +36,7 @@ Time adding 1048576 particles (NumPy Array): 1282.5754407159998
 Time delete and insert 1048576 particles (NumPy Array): 5043.001804089
 ```
 
-when actually filling the nodes with particle data (e.g. Parcels' particles), the performance for 2e16 particles is as follows:
+when actually filling the nodes with particle data (e.g. [Parcels](https://github.com/OceanParcels/parcels)' particles), the performance for 2e16 particles is as follows:
 ```
 Real list created.
 Time adding 262144 particles (RealList): 77.703234879
