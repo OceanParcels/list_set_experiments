@@ -36,6 +36,22 @@ Time adding 1048576 particles (NumPy Array): 1282.5754407159998
 Time delete and insert 1048576 particles (NumPy Array): 5043.001804089
 ```
 
+when actually filling the nodes with particle data (e.g. Parcels' particles), the performance for 2e16 particles is as follows:
+```
+Real list created.
+Time adding 262144 particles (RealList): 77.703234879
+Time delete and insert 262144 particles (RealList): 10.690429034000005
+Deleting 262144 elements ...
+===========================================================================
+Ordered list created.
+Time adding 262144 particles (OrderedList): 77.52311503000001
+Time delete and insert 262144 particles (OrderedList): 11.743454558999986
+Deleting 262144 elements ...
+===========================================================================
+NumPy nD-Array created.
+Time adding 262144 particles (NumPy Array): 559.621542179
+Time delete and insert 262144 particles (NumPy Array): 3913.6630525410005
+```
 
 As we can see, add-and-remove actions arbitrarily in the list are done very fast (as natural to linked lists and sets),
 while the fixed arrays and dense matrices in NumPy need to re-create and re-allocate memory all the time, hence the performance malus.
