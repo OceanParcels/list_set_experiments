@@ -3,6 +3,7 @@ import sys
 import package_globals
 from wrapping import *
 
+from particle import JITParticle, ScipyParticle
 
 class Node(object):
     prev = None
@@ -191,8 +192,14 @@ class NodeJIT(Node, ctypes.Structure):
         else:
             self.reset_next_ptr_c(self)
 
-        if self.data is not None:
-            self.set_data_ptr_c(self, ctypes.cast(self.data, ctypes.c_void_p))
+
+        if self.data is not None:   # and isinstance(ctypes.c_void_p):
+            #self._c_data_p = ctypes.cast(self.data, ctypes.c_void_p)
+            try:
+                # self.set_data_ptr_c(self, ctypes.cast(ctypes.byref(self.data.cdata()), ctypes.c_void_p))
+                self.set_data_ptr_c(self, self.data.cdata())
+            except AttributeError:
+                self.set_data_ptr_c(self, ctypes.cast(self.data, ctypes.c_void_p))
         else:
             self.reset_data_ptr_c(self)
 
@@ -345,7 +352,8 @@ class NodeJIT(Node, ctypes.Structure):
         if self.data is not None:   # and isinstance(ctypes.c_void_p):
             #self._c_data_p = ctypes.cast(self.data, ctypes.c_void_p)
             try:
-                self.set_data_ptr_c(self, ctypes.cast(ctypes.byref(self.data.cdata()), ctypes.c_void_p))
+                # self.set_data_ptr_c(self, ctypes.cast(ctypes.byref(self.data.cdata()), ctypes.c_void_p))
+                self.set_data_ptr_c(self, self.data.cdata())
             except AttributeError:
                 self.set_data_ptr_c(self, ctypes.cast(self.data, ctypes.c_void_p))
         else:
