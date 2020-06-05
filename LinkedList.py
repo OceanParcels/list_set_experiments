@@ -13,8 +13,8 @@ import gc
 class RealList(SortedList):
     dtype = None
 
-    def __init__(self, iterable=None, load=1000, dtype=Node):
-        super().__init__(iterable, load)
+    def __init__(self, iterable=None, dtype=Node):
+        super(RealList, self).__init__(iterable)
         self.dtype=dtype
 
     def __del__(self):

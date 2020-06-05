@@ -148,6 +148,10 @@ class _Particle(object):
         # Placeholder for explicit error handling
         self.exception = None
 
+    def __del__(self):
+        # super(_Particle, self).__del__()
+        pass
+
     @classmethod
     def getPType(cls):
         return ParticleType(cls)
@@ -195,6 +199,9 @@ class ScipyParticle(_Particle):
         super(ScipyParticle, self).__init__()
         self._next_dt = None
 
+    def __del__(self):
+        super(ScipyParticle, self).__del__()
+
     def __repr__(self):
         time_string = "not_yet_set" if (self.time is None) or (np.isnan(self.time)) else "{}".format(self.time) ## :f
         str = "P[%d](lon=%f, lat=%f, depth=%f, " % (self.id, self.lon, self.lat, self.depth)
@@ -230,6 +237,38 @@ class ScipyParticle(_Particle):
                 self._next_dt = None
         else:
             self._next_dt = next_dt
+
+
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        if (self.data is not None) and (other.data is not None):
+            return self.data == other.data
+        else:
+            #if (self.prev is not None) and (self.next is not None) and (other.prev is not None) and (other.next is not None):
+            #    # return (self.prev == other.prev) and (self.next == other.next)
+            #    return (id(self.prev) == id(other.prev)) and (id(self.next) == id(other.next))
+            #else:
+            return self.id == other.id
+            #return id(self) == id(other)
+
+#    def __ne__(self, other):
+#        pass
+#
+#    def __lt__(self, other):
+#        pass
+#
+#    def __le__(self, other):
+#        pass
+#
+#    def __gt__(self, other):
+#        pass
+#
+#    def __ge__(self, other):
+#        pass
+#
+#    def __sizeof__(self):
+#        pass
 
 class JITParticle(ScipyParticle):
     """Particle class for JIT-based (Just-In-Time) Particle objects
@@ -270,6 +309,9 @@ class JITParticle(ScipyParticle):
             setattr(self, index+'p', getattr(self, index).ctypes.data_as(c_void_p))
             setattr(self, 'c'+index, getattr(self, index+'p').value)
 
+    def __del__(self):
+        super(JITParticle, self).__del__()
+
     def cdata(self):
         if self._cptr is None:
             return None
@@ -287,69 +329,10 @@ class JITParticle(ScipyParticle):
     def reset_cptr(self):
         self._cptr=None
 
+    # TODO ================ #
+#    def __sizeof__(self):
+#        return super(JITParticle, self).__sizeof__()+None
+    # END TODO ============ #
 
 
-# ============================ #
-# ======== DO NOT USE ======== #
-# ============================ #
-class ParticleBuffer(object):
-
-    def __init__(self, pclass=JITParticle, lonlatdepth_dtype=None):
-        if lonlatdepth_dtype is not None:
-            self.lonlatdepth_dtype = lonlatdepth_dtype
-        else:
-            self.lonlatdepth_dtype = np.float32
-        JITParticle.set_lonlatdepth_dtype(self.lonlatdepth_dtype)
-
-        self.particles = np.empty([], dtype=pclass)
-        self.pclass = pclass
-        self.ptype = self.pclass.getPType()
-        if self.ptype.uses_jit:
-            # Allocate underlying data for C-allocated particles
-            self._particle_data = np.empty([], dtype=self.ptype.dtype)
-
-            def cptr(i):
-                return self._particle_data[i]
-        else:
-            def cptr(i):
-                return None
-
-        self.invalid_indices = []
-
-    def add(self, pdata):
-        assert (isinstance(pdata, self.pclass))
-        self.particles = np.concatenate((self.particles, pdata), 0)
-        new_p_index = self.particles.shape[0]-1
-        if self.ptype.uses_jit:
-            self._particle_data = np.concatenate((self._particle_data, pdata.get_cptr()),0)
-            new_pcdata_index = self._particle_data.shape[0]-1
-            self.particles[new_p_index].set_cptr( self._particle_data[new_pcdata_index] )
-        return self.particles[new_p_index]
-
-    def invalidate(self, pdata_or_index ):
-        if isinstance(pdata_or_index, self.pclass):
-            index = np.where(self.particles == pdata_or_index)[0][0]
-            # self.particles[index] = None
-            self.invalid_indices.append(index)
-        elif isinstance(pdata_or_index, int):
-            if pdata_or_index >= 0 and pdata_or_index < self.particles.shape[0]:
-                self.invalid_indices.append(pdata_or_index)
-
-    def compact(self):
-        removals = np.array(self.invalid_indices, dtype=np.int32)
-        self.particles = np.delete(self.particles, removals)
-        if self.ptype.uses_jit:
-            self._particle_data = np.delete(self._particle_data, removals)
-        self.invalid_indices.clear()
-
-    def autocompact(self, condition):
-        pass
-
-    def get(self, index):
-        if index >= 0 and index < self.particles.shape[0]:
-            return self.particles[index]
-        return None
-
-    def __getitem__(self, item):
-        return self.get(item)
 
