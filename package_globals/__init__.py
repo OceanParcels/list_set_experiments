@@ -6,4 +6,4 @@ global idgen
 idgen = IdGenerator()
 
 global spat_idgen
-spat_idgen = SpecialIdGenerator()
+spat_idgen = SpatioTemporalIdGenerator()
