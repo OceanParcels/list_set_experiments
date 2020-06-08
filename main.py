@@ -65,8 +65,13 @@ if __name__ == '__main__':
     id2 = package_globals.spat_idgen.getID(0.0, 0.0, 20.0, 0.0)
     id3 = package_globals.spat_idgen.getID(4.895168, 52.370216, 12.0, 0.0)  # Amsterdam
     id4 = package_globals.spat_idgen.getID(-43.172897, -22.906847, 12.0, 0.0)   # Rio de Janeiro
+    id5 = package_globals.spat_idgen.getID(0.0, 0.0, 20.0, 0.0)
+    package_globals.spat_idgen.releaseID(id5)
+    id6 = package_globals.spat_idgen.getID(0.0, 0.0, 20.0, 0.0)
     print("Test-ID 1:         {}".format(numpy.binary_repr(id1, width=64)))
     print("Test-ID 2:         {}".format(numpy.binary_repr(id2, width=64)))
+    print("Test-ID 5:         {}".format(numpy.binary_repr(id5, width=64)))
+    print("Test-ID 6:         {}".format(numpy.binary_repr(id6, width=64)))
     print("Test-ID Amsterdam: {}".format(numpy.binary_repr(id3, width=64)))
     print("Test-ID Rio:       {}".format(numpy.binary_repr(id4, width=64)))
     print("===========================================================================")
@@ -236,6 +241,7 @@ if __name__ == '__main__':
     real_pset = ParticleSet(fieldset, pclass, lonlatdepth_dtype=numpy.float32)
     print("Real ParticleSet created.")
 
+    stime = process_time()
     while len(real_pset) < N:
         n = len(real_pset)
         index = package_globals.idgen.nextID()

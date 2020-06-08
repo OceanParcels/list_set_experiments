@@ -47,6 +47,7 @@ class IdGenerator:
         return self.next_id
 
 class SpatioTemporalIdGenerator:
+    """Generates 64-bit IDs"""
     timebounds  = np.zeros(2, dtype=np.float64)
     depthbounds = np.zeros(2, dtype=np.float32)
     local_ids = 0
@@ -83,8 +84,10 @@ class SpatioTemporalIdGenerator:
         # id = np.bitwise_or(np.bitwise_or(np.bitwise_or(np.left_shift(lon_index, 23), np.left_shift(lat_index, 15)), np.left_shift(depth_index, 8)), time)
         id = np.left_shift(lon_index, 23) + np.left_shift(lat_index, 15) + np.left_shift(depth_index, 8) + time
         if len(self.released_ids)>0 and (id in self.released_ids.keys()) and len(self.released_ids[id])>0:
-            mlist = self.released_ids[id]
-            local_index = np.uint32(mlist.pop())
+            # mlist = self.released_ids[id]
+            local_index = np.uint32(self.released_ids[id].pop())
+            if len(self.released_ids[id])<= 0:
+                del self.released_ids[id]
         else:
             local_index = self.local_ids[lon_index, lat_index, depth_index, time_index]
             self.local_ids[lon_index, lat_index, depth_index, time_index] += 1
@@ -98,9 +101,15 @@ class SpatioTemporalIdGenerator:
         return self.getID(lon, lat, depth, time)
 
     def releaseID(self, id):
-        # TODO ========
-        pass
-        # END TODO ====
+        full_bits = np.uint32(4294967295)
+        nil_bits  = np.int32(0)
+        spatiotemporal_id = np.bitwise_and(np.bitwise_or(np.left_shift(np.int64(full_bits), 32), np.int64(nil_bits)), np.int64(id))
+        spatiotemporal_id = np.uint32(np.right_shift(spatiotemporal_id, 32))
+        local_id          = np.bitwise_and(np.bitwise_or(np.left_shift(np.int64(nil_bits), 32), np.int64(full_bits)), np.int64(id))
+        local_id          = np.uint32(local_id)
+        if spatiotemporal_id not in self.released_ids.keys():
+            self.released_ids[spatiotemporal_id] = []
+        self.released_ids[spatiotemporal_id].append(local_id)
 
     def __len__(self):
         return np.sum(self.local_ids)+sum([len(entity) for entity in self.released_ids])
