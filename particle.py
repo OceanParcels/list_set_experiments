@@ -110,6 +110,11 @@ class ParticleType(object):
         return sum([8 if v.is64bit() else 4 for v in self.variables])
 
     @property
+    def bsize(self):
+        """Size of the underlying particle struct in bytes"""
+        return sum([v.dtype.itemsize for v in self.variables])
+
+    @property
     def supported_dtypes(self):
         """List of all supported numpy dtypes. All others are not supported"""
 
@@ -237,37 +242,48 @@ class ScipyParticle(_Particle):
         else:
             self._next_dt = next_dt
 
-
     def __eq__(self, other):
         if type(self) is not type(other):
             return False
-        if (self.data is not None) and (other.data is not None):
-            return self.data == other.data
-        else:
-            #if (self.prev is not None) and (self.next is not None) and (other.prev is not None) and (other.next is not None):
-            #    # return (self.prev == other.prev) and (self.next == other.next)
-            #    return (id(self.prev) == id(other.prev)) and (id(self.next) == id(other.next))
-            #else:
-            return self.id == other.id
-            #return id(self) == id(other)
+        ids_eq = (self.id == other.id)
+        attr_eq = True
+        attr_eq&= (self.lon == other.lon)
+        attr_eq&= (self.lat == other.lat)
+        attr_eq&= (self.depth == other.depth)
+        attr_eq&= (self.time == other.time)
+        attr_eq&= (self.dt == other.dt)
+        return ids_eq and attr_eq
 
-#    def __ne__(self, other):
-#        pass
-#
-#    def __lt__(self, other):
-#        pass
-#
-#    def __le__(self, other):
-#        pass
-#
-#    def __gt__(self, other):
-#        pass
-#
-#    def __ge__(self, other):
-#        pass
-#
-#    def __sizeof__(self):
-#        pass
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __lt__(self, other):
+        if type(self) is not type(other):
+            err_msg = "This object and the other object (type={}) do note have the same type.".format(str(type(other)))
+            raise AttributeError(err_msg)
+        return self.id < other.id
+
+    def __le__(self, other):
+        if type(self) is not type(other):
+            err_msg = "This object and the other object (type={}) do note have the same type.".format(str(type(other)))
+            raise AttributeError(err_msg)
+        return self.id <= other.id
+
+    def __gt__(self, other):
+        if type(self) is not type(other):
+            err_msg = "This object and the other object (type={}) do note have the same type.".format(str(type(other)))
+            raise AttributeError(err_msg)
+        return self.id > other.id
+
+    def __ge__(self, other):
+        if type(self) is not type(other):
+            err_msg = "This object and the other object (type={}) do note have the same type.".format(str(type(other)))
+            raise AttributeError(err_msg)
+        return self.id >= other.id
+
+    def __sizeof__(self):
+        ptype = self.getPType()
+        return sum([v.size for v in ptype.variables])
 
 class JITParticle(ScipyParticle):
     """Particle class for JIT-based (Just-In-Time) Particle objects
@@ -327,6 +343,28 @@ class JITParticle(ScipyParticle):
 
     def reset_cptr(self):
         self._cptr=None
+
+    def __eq__(self, other):
+        return super(JITParticle, self).__eq__(other)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __lt__(self, other):
+        return super(JITParticle, self).__lt__(other)
+
+    def __le__(self, other):
+        return super(JITParticle, self).__le__(other)
+
+    def __gt__(self, other):
+        return super(JITParticle, self).__gt__(other)
+
+    def __ge__(self, other):
+        return super(JITParticle, self).__ge__(other)
+
+    def __sizeof__(self):
+        ptype = self.getPType()
+        return sum([v.size for v in ptype.variables])
 
     # TODO ================ #
 #    def __sizeof__(self):
