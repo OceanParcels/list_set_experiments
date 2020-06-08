@@ -94,6 +94,9 @@ class RealList(SortedList):
                 prev_node.set_next(new_node)
                 new_node.set_prev(prev_node)
 
+    def append(self, val):
+        self.add(val)
+
     def pop(self, idx=-1, deepcopy_elem=False):
         """
         Because we expect the return node to be of use,
