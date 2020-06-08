@@ -149,7 +149,6 @@ class _Particle(object):
         self.exception = None
 
     def __del__(self):
-        # super(_Particle, self).__del__()
         pass
 
     @classmethod
