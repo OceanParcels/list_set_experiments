@@ -68,8 +68,14 @@ class InterfaceC:
 
     def __init__(self, c_file_name):
         basename = c_file_name
+        lib_path = basename
+        lib_pathfile = os.path.basename(basename)
+        lib_pathdir = os.path.dirname(basename)
+        if lib_pathfile[0:3] != "lib":
+            lib_pathfile = "lib"+lib_pathfile
+            lib_path = os.path.join(lib_pathdir, lib_pathfile)
         self.src_file = "%s.c" % basename
-        self.lib_file = "%s.%s" % (basename, 'dll' if sys.platform == 'win32' else 'so')
+        self.lib_file = "%s.%s" % (lib_path, 'dll' if sys.platform == 'win32' else 'so')
         self.log_file = "%s.log" % basename
 
         self.compiler = GNUCompiler()
@@ -154,16 +160,29 @@ class CCompiler(object):
     :arg cc: C compiler executable (uses environment variable ``CC`` if not provided).
     :arg cppargs: A list of arguments to the C compiler (optional).
     :arg ldargs: A list of arguments to the linker (optional)."""
+    # support_libraries = []
+    # support_inc_folders = []
+    # support_lib_folders = []
 
-    def __init__(self, cc=None, cppargs=None, ldargs=None):
+    def __init__(self, cc=None, cppargs=None, ldargs=None, incdirs=None, libdirs=None, libs=None):
         if cppargs is None:
             cppargs = []
         if ldargs is None:
             ldargs = []
+        if incdirs is None:
+            incdirs = []
+        if libdirs is None:
+            libdirs = []
+        if libs is None:
+            libs = []
 
         self._cc = os.getenv('CC') if cc is None else cc
         self._cppargs = cppargs
         self._ldargs = ldargs
+
+        # self.support_inc_folders += incdirs
+        # self.support_lib_folders += libdirs
+        # self.support_libraries += libs
 
     def compile(self, src, obj, log):
         cc = [self._cc] + self._cppargs + ['-o', obj, src] + self._ldargs
@@ -192,24 +211,78 @@ class GNUCompiler(CCompiler):
     :arg cppargs: A list of arguments to pass to the C compiler
          (optional).
     :arg ldargs: A list of arguments to pass to the linker (optional)."""
-    def __init__(self, cppargs=None, ldargs=None):
+    def __init__(self, cppargs=None, ldargs=None, incdirs=None, libdirs=None, libs=None):
         if cppargs is None:
             cppargs = []
         if ldargs is None:
             ldargs = []
+        # super(GNUCompiler, self).__init__(compiler, cppargs=cppargs, ldargs=ldargs, incdirs=incdirs, libdirs=libdirs, libs=libs)
+        # self.support_inc_folders = [os.path.join(package_globals.get_package_dir(), 'include')]
+
+        Iflags = []
+        if incdirs is not None and isinstance(incdirs, list):
+            for i, dir in enumerate(incdirs):
+                Iflags.append("-I"+dir)
+        Lflags = []
+        if libdirs is not None and isinstance(libdirs, list):
+            for i, dir in enumerate(libdirs):
+                Lflags.append("-L"+dir)
+        lflags = []
+        if libs is not None and isinstance(libs, list):
+            for i, lib in enumerate(libs):
+                lflags.append("-l" +lib)
 
         opt_flags = ['-g', '-O3']
         arch_flag = ['-m64' if calcsize("P") == 8 else '-m32']
-        cppargs = ['-Wall', '-fPIC', '-I%s' % os.path.join(package_globals.get_package_dir(), 'include')] + opt_flags + cppargs
+        cppargs = ['-Wall', '-fPIC'] + Iflags + opt_flags + cppargs
         cppargs += arch_flag
-        ldargs = ['-shared'] + ldargs + arch_flag
+        ldargs = ['-shared'] + Lflags + lflags + ldargs + arch_flag
         #compiler = "mpicc" if MPI else "gcc"
         cc_env = os.getenv('CC')
         compiler = "mpicc" if MPI else "gcc" if cc_env is None else cc_env
-        super(GNUCompiler, self).__init__(compiler, cppargs=cppargs, ldargs=ldargs)
 
+        super(GNUCompiler, self).__init__(compiler, cppargs=cppargs, ldargs=ldargs, incdirs=incdirs, libdirs=libdirs, libs=libs)
 
+    def compile(self, src, obj, log):
+        #Iflags = None
+        #if len(self.support_inc_folders) > 0:
+        #    #Iflags = "-I"
+        #    Iflags = ""
+        #    for i, dir in enumerate(self.support_inc_folders):
+        #        Iflags += "-I"+dir+" "
+        #        #Iflags += dir
+        #        #Iflags += ":" if i<(len(self.support_inc_folders)-1) else ""
+        #Lflags = None
+        #if len(self.support_lib_folders) > 0:
+        #    #Lflags = "-L"
+        #    Lflags = ""
+        #    for i, dir in enumerate(self.support_lib_folders):
+        #        Lflags += "-L"+dir+" "
+        #        #Lflags += " " if i<(len(self.support_lib_folders)-1) else ""
+        #lflags = None
+        #if len(self.support_libraries):
+        #    lflags = ""
+        #    for i, lib in enumerate(self.support_libraries):
+        #        lflags += "-l" +lib+" "
+        #        #lflags += " " if i<(len(self.support_libraries)-1) else ""
 
+        #if Iflags is not None:
+        #    # self._cppargs = self._cppargs.append(Iflags.rstrip())
+        #    self._cppargs.append(Iflags.rstrip())
+        #if Lflags is not None:
+        #    # self._ldargs = self._ldargs.append(Lflags.rstrip())
+        #    self._ldargs.append(Lflags.rstrip())
+        #if lflags is not None:
+        #    # self._ldargs = self._ldargs.append(lflags.rstrip())
+        #    self._ldargs.append(lflags.rstrip())
+
+        lib_pathfile = os.path.basename(obj)
+        lib_pathdir = os.path.dirname(obj)
+        if lib_pathfile[0:3] != "lib":
+            lib_pathfile = "lib"+lib_pathfile
+            obj = os.path.join(lib_pathdir, lib_pathfile)
+
+        super(GNUCompiler, self).compile(src, obj, log)
 
 
 

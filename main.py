@@ -8,11 +8,15 @@ from time import process_time
 from numpy import random
 import numpy
 from copy import deepcopy
+import math
 
 from particle import JITParticle, ScipyParticle
 from parcels_mocks import *
 
 from particleset_node import ParticleSet
+from kernel import NodeFieldKernel, NodeNoFieldKernel, DoNothing, PrintKernel
+
+from datetime import timedelta
 
 
 class divide_n_conquer_list:
@@ -80,10 +84,10 @@ if __name__ == '__main__':
     with_numpy = True
     #N = 2 ** 20
     #N = 2 ** 18
-    N = 2 ** 16
+    #-N = 2 ** 16
     #N = 2 ** 14
     #N = 2 ** 12
-    #N = 2 ** 10
+    N = 2 ** 10
     #N = 2 ** 4
 
     fieldset = FieldSet()
@@ -239,6 +243,7 @@ if __name__ == '__main__':
     # pclass = ScipyParticle
     pclass = JITParticle
     real_pset = ParticleSet(fieldset, pclass, lonlatdepth_dtype=numpy.float32)
+    real_pset.set_kernel_class(NodeNoFieldKernel)
     print("Real ParticleSet created.")
 
     stime = process_time()
@@ -266,6 +271,21 @@ if __name__ == '__main__':
     print("Time delete and insert {} particles (Real ParticleSet): {}".format(N, etime-stime))
     #print("len(list): {}".format(len(dbl_list)))
     #print([str(v) for v in dbl_list])
+
+
+    stime = process_time()
+    cmp_index = numpy.random.randint(0, len(real_pset))
+    cmp_node = real_pset[cmp_index]
+    cmp_time_s = cmp_node.data.time
+    real_pset.execute(real_pset.Kernel(PrintKernel), endtime=timedelta(days=1).total_seconds(), dt=timedelta(minutes=5).total_seconds(), verbose_progress=True)
+    cmp_time_e = cmp_node.data.time
+    print("Particle {} - starttime: {}; endtime: {}".format(cmp_node.id, cmp_time_s, cmp_time_e))
+    etime = process_time()
+    n_iter = math.ceil(timedelta(days=1).total_seconds() / timedelta(minutes=5).total_seconds())
+    print("Time executing {} particles (# iterations = {}) (Real ParticleSet): {}".format(N, n_iter, etime-stime))
+
+
+
     del real_pset
     real_pset = None
 

@@ -1,5 +1,5 @@
-#ifndef _PARCELS_H
-#define _PARCELS_H
+#ifndef _NODE_H
+#define _NODE_H
 #ifdef __cplusplus
 extern "C" {
 #endif
