@@ -402,7 +402,7 @@ class BaseFieldKernel(BaseKernel):
 
         # Generate the kernel function and add the outer loop
         if self.ptype.uses_jit:
-            kernelgen = KernelGenerator(self.fieldset, ptype)
+            kernelgen = KernelGenerator(ptype, self.fieldset)
             kernel_ccode = kernelgen.generate(deepcopy(self.py_ast), self.funcvars)
             self.field_args = kernelgen.field_args
             self.vector_field_args = kernelgen.vector_field_args
