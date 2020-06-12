@@ -126,7 +126,7 @@ class ParticleSet(object):
             return None
 
     def empty(self):
-        return self.size > 0
+        return self.size <= 0
 
     def begin(self):
         """
@@ -163,6 +163,10 @@ class ParticleSet(object):
     @property
     def data(self):
         return self._nodes
+
+    @property
+    def fieldset(self):
+        return self._fieldset
 
     def __len__(self):
         return self.size
@@ -294,14 +298,20 @@ class ParticleSet(object):
             self.remove_entity(ndata)
 
     def get_deleted_item_indices(self):
-        indices = [i for i, n in enumerate(self._nodes) if n.data.state is ErrorCode.Delete]
+        indices = [i for i, n in enumerate(self._nodes) if n.data.state == ErrorCode.Delete]
         return indices
+
+    def remove_deleted_items_by_indices(self, indices):
+        if len(indices)> 0:
+            indices.sort(reverse=True)
+            for index in indices:
+                del self._nodes[index]
 
     def remove_deleted_items(self):
         node = self.begin()
         while node is not None:
             next_node = node.next
-            if node.data.state is ErrorCode.Delete:
+            if node.data.state == ErrorCode.Delete:
                 self._nodes.remove(node)
             node = next_node
 
@@ -382,26 +392,33 @@ class ParticleSet(object):
         assert outputdt is None or outputdt >= 0, 'outputdt must be positive'
 
         # Set particle.time defaults based on sign of dt, if not set at ParticleSet construction
-        piter = 0
-        while piter < len(self._nodes):
-            pdata = self._nodes[piter].data
-            if np.isnan(pdata.time):
-                mintime, maxtime = self._fieldset.gridset.dimrange('time_full')
-                pdata.time = mintime if dt >= 0 else maxtime
-                self._nodes[piter].set_data(pdata)
+        # piter = 0
+        # while piter < len(self._nodes):
+        #     pdata = self._nodes[piter].data
+        # #node = self.begin()
+        # #while node is not None:
+        # #    pdata = node.data
+        #     if np.isnan(pdata.time):
+        #         mintime, maxtime = self._fieldset.gridset.dimrange('time_full')
+        #         pdata.time = mintime if dt >= 0 else maxtime
+        # #    node.set_data(pdata)
+        #     self._nodes[piter].set_data(pdata)
+        #     piter += 1
 
         # Derive _starttime and endtime from arguments or fieldset defaults
         if runtime is not None and endtime is not None:
             raise RuntimeError('Only one of (endtime, runtime) can be specified')
-        # ====================================== #
-        # ==== EXPENSIVE LIST COMPREHENSION ==== #
-        # ====================================== #
-        _starttime = min([p.time for p in self]) if dt >= 0 else max([p.time for p in self])
+
+
+        mintime, maxtime = self._fieldset.gridset.dimrange('time_full')
+        _starttime = min([n.data.time for n in self._nodes if not np.isnan(n.data.time)] + [mintime, ]) if dt >= 0 else max([n.data.time for n in self._nodes if not np.isnan(n.data.time)] + [maxtime, ])
         if runtime is not None:
             endtime = _starttime + runtime * np.sign(dt)
         elif endtime is None:
-            mintime, maxtime = self._fieldset.gridset.dimrange('time_full')
             endtime = maxtime if dt >= 0 else mintime
+
+        # print("Fieldset min-max: {} to {}".format(mintime, maxtime))
+        # print("starttime={} to endtime={} (runtime={})".format(_starttime, endtime, runtime))
 
         if abs(endtime-_starttime) < 1e-5 or dt == 0 or runtime == 0:
             dt = 0
@@ -415,7 +432,10 @@ class ParticleSet(object):
         while piter < len(self._nodes):
             pdata = self._nodes[piter].data
             pdata.dt = dt
+            if np.isnan(pdata.time):
+                pdata.time = _starttime
             self._nodes[piter].set_data(pdata)
+            piter += 1
 
         # First write output_file, because particles could have been added
         if output_file is not None:
