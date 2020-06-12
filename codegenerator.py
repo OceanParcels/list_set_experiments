@@ -384,7 +384,8 @@ class KernelGenerator(ast.NodeVisitor):
 
     def generate(self, py_ast, funcvars):
         # Replace occurences of intrinsic objects in Python AST
-        transformer = IntrinsicTransformer(self.fieldset, self.ptype)
+        # transformer = IntrinsicTransformer(self.fieldset, self.ptype)
+        transformer = IntrinsicTransformer(self.ptype, self.fieldset)
         py_ast = transformer.visit(py_ast)
 
         # Untangle Pythonic tuple-assignment statements
@@ -427,6 +428,9 @@ class KernelGenerator(ast.NodeVisitor):
 
         # Create function declaration and argument list
         decl = c.Static(c.DeclSpecifier(c.Value("ErrorCode", node.name), spec='inline'))
+
+        # ==== REMEMBER THAT YOU SWITCHED THE PARAMETER ORDER IN THE INIT FUNC === #
+
         args = [c.Pointer(c.Value(self.ptype.name, "particle")),
                 c.Value("double", "time")]
         for field in self.field_args.values():
@@ -985,8 +989,6 @@ class NodeLoopGenerator(object):
                           dt_pos, c.Statement("break")]))]
 
         time_loop = c.While("__dt > __tol || particle->dt == 0", c.Block(body))
-        #part_loop = c.For("p = 0", "p < num_particles", "++p",
-        #                  c.Block([sign_end_part, notstarted_continue, dt_pos, time_loop]))
         node_loop = c.While("node != NULL", c.Block([c.Assign("particle", "(%s*)(node->_c_data_p)" % (self.ptype.name)),
                                                      sign_end_part, notstarted_continue, dt_pos, time_loop, progress_loop]))
 
