@@ -1,8 +1,6 @@
 import os
 import sys
 import _ctypes
-#from os import getenv
-#from os import path
 from tempfile import gettempdir
 from pathlib import Path
 
@@ -23,7 +21,7 @@ def cleanup_unload_lib(lib):
     # Clean-up the in-memory dynamic linked libraries.
     # This is not really necessary, as these programs are not that large, but with the new random
     # naming scheme which is required on Windows OS'es to deal with updates to a Parcels' kernel.
-    print(lib)
+    #print(lib)
     if lib is not None:
         _ctypes.FreeLibrary(lib._handle) if sys.platform == 'win32' else _ctypes.dlclose(lib._handle)
 
