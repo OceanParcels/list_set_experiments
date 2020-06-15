@@ -42,7 +42,7 @@ except:
 #from parcels.tools.error import ErrorCode
 
 from codegenerator import KernelGenerator, LoopGenerator, NodeLoopGenerator
-from compiler import get_cache_dir
+from package_globals import get_cache_dir
 # from parcels_mocks import Field
 # from parcels_mocks import NestedField
 # from parcels_mocks import SummedField

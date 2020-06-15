@@ -13,6 +13,7 @@ __all__ = ['ScipyParticle', 'JITParticle', 'Variable']
 
 indicators_64bit = [np.float64, np.int64, c_void_p]
 
+
 class Variable(object):
     """Descriptor class that delegates data access to particle data
 
@@ -187,8 +188,8 @@ class ScipyParticle(_Particle):
     depth = Variable('depth', dtype=np.float32)
     time = Variable('time', dtype=np.float64, initial=np.nan)
     id = Variable('id', dtype=np.int32)
-    dt = Variable('dt', dtype=np.float32, to_write=False)
-    state = Variable('state', dtype=np.int32, initial=ErrorCode.Success, to_write=False)
+    dt = Variable('dt', dtype=np.float64, to_write=False)
+    state = Variable('state', dtype=np.int32, initial=ErrorCode.Evaluate, to_write=False)
 
     def __init__(self, lon, lat, pid, fieldset, depth=0., time=0., dt=None, cptr=None):
 
@@ -227,6 +228,12 @@ class ScipyParticle(_Particle):
 
     def reset_state(self):
         self.state = ErrorCode.Success
+
+    def isComputed(self):
+        return self.state == ErrorCode.Success
+
+    def reset_state(self):
+        self.state = ErrorCode.Evaluate
 
     @classmethod
     def set_lonlatdepth_dtype(cls, dtype):
@@ -284,6 +291,7 @@ class ScipyParticle(_Particle):
     def __sizeof__(self):
         ptype = self.getPType()
         return sum([v.size for v in ptype.variables])
+
 
 class JITParticle(ScipyParticle):
     """Particle class for JIT-based (Just-In-Time) Particle objects

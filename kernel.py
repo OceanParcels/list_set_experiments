@@ -82,14 +82,14 @@ class NodeNoFieldKernel(BaseNoFieldKernel):
         if self.field_args is not None:
             fargs += [byref(f.ctypes_struct) for f in self.field_args.values()]
         if self.const_args is not None:
-            fargs += [c_float(f) for f in self.const_args.values()]
+            fargs += [c_double(f) for f in self.const_args.values()]
 
         # particle_data = pset._particle_data.ctypes.data_as(c_void_p)
         node_data = pset.begin()
         if len(fargs) > 0:
-            self._function(c_int(len(pset)), pointer(node_data), c_double(endtime), c_float(dt), *fargs)
+            self._function(c_int(len(pset)), pointer(node_data), c_double(endtime), c_double(dt), *fargs)
         else:
-            self._function(c_int(len(pset)), pointer(node_data), c_double(endtime), c_float(dt))
+            self._function(c_int(len(pset)), pointer(node_data), c_double(endtime), c_double(dt))
 
     def execute_python(self, pset, endtime, dt):
         """Performs the core update loop via Python"""
@@ -163,10 +163,14 @@ class NodeNoFieldKernel(BaseNoFieldKernel):
     def execute(self, pset, endtime, dt, recovery=None, output_file=None):
         """Execute this Kernel over a ParticleSet for several timesteps"""
 
+        node = pset.begin()
+        while node is not None:
+            node.data.reset_state()
+
         def _print_error_occurred_(particle, fieldset, time):
             print("An error occurred during execution with particle={} at time={}".format(particle, time))
 
-
+        # ==== this one really should be a member function of the ParticleSet, with the outfile as parameter ==== #
         def _remove_deleted_(pset, verbose=False):
             """Utility to remove all particles that signalled deletion"""
             rm_indices = pset.get_deleted_item_indices()
@@ -212,24 +216,27 @@ class NodeNoFieldKernel(BaseNoFieldKernel):
         # ==== EXPENSIVE LIST COMPREHENSION ==== #
         # ====================================== #
         # error_particles = [p for p in pset.particles if p.state != ErrorCode.Success]
-        error_particles = [n.data for n in pset.data if n.data.state != ErrorCode.Success]
+        error_particles = [n.data for n in pset.data if n.data.state not in [ErrorCode.Success, ErrorCode.Evaluate]]
 
         error_loop_iter = 0
         while len(error_particles) > 0:
             # Apply recovery kernel
             for p in error_particles:
+                if p.state == ErrorCode.StopExecution:
+                    return
                 if p.state == ErrorCode.Repeat:
+                    p.reset_state()
+                elif p.state in recovery_map:
+                    recovery_kernel = recovery_map[p.state]
                     p.state = ErrorCode.Success
+                    recovery_kernel(p, self.fieldset, p.time)
+                    # recovery_kernel(p, None, p.time)
+                    if(p.isComputed()):
+                        p.reset_state()
                 else:
-                    if p.state in recovery_map:
-                        recovery_kernel = recovery_map[p.state]
-                        p.state = ErrorCode.Success
-                        recovery_kernel(p, self.fieldset, p.time)
-                        # recovery_kernel(p, None, p.time)
-                    else:
-                        if DEBUG_MODE:
-                            sys.stdout.write("Error: loop={},  p.state={}, recovery_map: {}, age: {}, agetime: {}\n".format(error_loop_iter, p.state,recovery_map, p.age, p.agetime))
-                        p.delete()
+                    if DEBUG_MODE:
+                        sys.stdout.write("Error: loop={},  p.state={}, recovery_map: {}, age: {}, agetime: {}\n".format(error_loop_iter, p.state,recovery_map, p.age, p.agetime))
+                    p.delete()
 
             if DEBUG_MODE:
                 before_len = len(pset.particles)
@@ -260,7 +267,7 @@ class NodeNoFieldKernel(BaseNoFieldKernel):
             # ==== EXPENSIVE LIST COMPREHENSION ==== #
             # ====================================== #
             # error_particles = [p for p in pset.particles if p.state != ErrorCode.Success]
-            error_particles = [n.data for n in pset.data if n.data.state != ErrorCode.Success]
+            error_particles = [n.data for n in pset.data if n.data.state not in [ErrorCode.Success, ErrorCode.Evaluate]]
             error_loop_iter += 1
 
 
@@ -305,14 +312,11 @@ class NodeFieldKernel(BaseFieldKernel):
         #     if not g.lat.flags.c_contiguous:
         #         g.lat = g.lat.copy()
 
-        # ====================================== #
-        # ==== EXPENSIVE LIST COMPREHENSION ==== #
-        # ====================================== #
         fargs = [byref(f.ctypes_struct) for f in self.field_args.values()]
-        fargs += [c_float(f) for f in self.const_args.values()]
+        fargs += [c_double(f) for f in self.const_args.values()]
         # particle_data = pset._particle_data.ctypes.data_as(c_void_p)
         node_data = pset.begin()
-        self._function(c_int(len(pset)), pointer(node_data), c_double(endtime), c_float(dt), *fargs)
+        self._function(c_int(len(pset)), pointer(node_data), c_double(endtime), c_double(dt), *fargs)
 
     def execute_python(self, pset, endtime, dt):
         """Performs the core update loop via Python"""
@@ -386,6 +390,10 @@ class NodeFieldKernel(BaseFieldKernel):
     def execute(self, pset, endtime, dt, recovery=None, output_file=None):
         """Execute this Kernel over a ParticleSet for several timesteps"""
 
+        node = pset.begin()
+        while node is not None:
+            node.data.reset_state()
+
         def _print_error_occurred_(particle, fieldset, time):
             print("An error occurred during execution with particle={} at time={}".format(particle, time))
 
@@ -435,24 +443,27 @@ class NodeFieldKernel(BaseFieldKernel):
         # ==== EXPENSIVE LIST COMPREHENSION ==== #
         # ====================================== #
         # error_particles = [p for p in pset.particles if p.state != ErrorCode.Success]
-        error_particles = [n.data for n in pset.data if n.data.state != ErrorCode.Success]
+        error_particles = [n.data for n in pset.data if n.data.state not in [ErrorCode.Success, ErrorCode.Evaluate]]
 
         error_loop_iter = 0
         while len(error_particles) > 0:
             # Apply recovery kernel
             for p in error_particles:
+                if p.state == ErrorCode.StopExecution:
+                    return
                 if p.state == ErrorCode.Repeat:
+                    p.reset_state()
+                elif p.state in recovery_map:
+                    recovery_kernel = recovery_map[p.state]
                     p.state = ErrorCode.Success
+                    recovery_kernel(p, self.fieldset, p.time)
+                    # recovery_kernel(p, None, p.time)
+                    if(p.isComputed()):
+                        p.reset_state()
                 else:
-                    if p.state in recovery_map:
-                        recovery_kernel = recovery_map[p.state]
-                        p.state = ErrorCode.Success
-                        recovery_kernel(p, self.fieldset, p.time)
-                        # recovery_kernel(p, None, p.time)
-                    else:
-                        if DEBUG_MODE:
-                            sys.stdout.write("Error: loop={},  p.state={}, recovery_map: {}, age: {}, agetime: {}\n".format(error_loop_iter, p.state,recovery_map, p.age, p.agetime))
-                        p.delete()
+                    if DEBUG_MODE:
+                        sys.stdout.write("Error: loop={},  p.state={}, recovery_map: {}, age: {}, agetime: {}\n".format(error_loop_iter, p.state,recovery_map, p.age, p.agetime))
+                    p.delete()
 
             if DEBUG_MODE:
                 before_len = len(pset.particles)
@@ -483,7 +494,7 @@ class NodeFieldKernel(BaseFieldKernel):
             # ==== EXPENSIVE LIST COMPREHENSION ==== #
             # ====================================== #
             # error_particles = [p for p in pset.particles if p.state != ErrorCode.Success]
-            error_particles = [n.data for n in pset.data if n.data.state != ErrorCode.Success]
+            error_particles = [n.data for n in pset.data if n.data.state not in [ErrorCode.Success, ErrorCode.Evaluate]]
             error_loop_iter += 1
 
 
