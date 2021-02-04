@@ -3,17 +3,17 @@ from datetime import date
 from datetime import datetime as dtime
 from datetime import timedelta as delta
 
-from LinkedList import *
-import package_globals
+from parcels_nodes.LinkedList import *
+from parcels_nodes import package_globals
 
-from particle import ScipyParticle, JITParticle
-from parcels_mocks import Grid, Field, GridSet, FieldSet
+from parcels_nodes.particle import ScipyParticle, JITParticle
+from parcels_nodes.parcels_mocks import Grid, Field, GridSet, FieldSet
 import numpy as np
 
-from kernelbase import BaseNoFieldKernel, BaseFieldKernel
-from kernel import DoNothing, NodeNoFieldKernel, NodeFieldKernel
-from kernel import NodeNoFieldKernel as Kernel
-from parcels_mocks.status import StatusCode as ErrorCode
+from parcels_nodes.kernelbase import BaseNoFieldKernel, BaseFieldKernel
+from parcels_nodes.kernel import DoNothing, NodeNoFieldKernel, NodeFieldKernel
+from parcels_nodes.kernel import NodeNoFieldKernel as Kernel
+from parcels_nodes.parcels_mocks.status import StatusCode as ErrorCode
 
 
 class RepeatParameters(object):
@@ -26,11 +26,17 @@ class RepeatParameters(object):
     _partitions = None
     kwargs = None
 
-    def __init__(self, pclass=JITParticle, lon=[], lat=[], depth=[], partitions=None, pid_orig=None, **kwargs):
+    def __init__(self, pclass=JITParticle, lon=None, lat=None, depth=None, partitions=None, pid_orig=None, **kwargs):
+        if lon is None:
+            lon = []
         self._lon = lon
+        if lat is None:
+            lat = []
         self._lat = lat
-        self._maxID = pid_orig # pid - pclass.lastID
+        if depth is None:
+            depth = []
         self._depth = depth
+        self._maxID = pid_orig # pid - pclass.lastID
         assert type(self._lon)==type(self._lat)==type(self._depth)
         if isinstance(self._lon, list):
             self._n_pts = len(self._lon)
@@ -40,28 +46,33 @@ class RepeatParameters(object):
         self._partitions = partitions
         self.kwargs = kwargs
 
-    def get_num_pts(self):
+    @property
+    def num_pts(self):
         return self._n_pts
 
-    def get_lon(self):
+    @property
+    def lon(self):
         return self._lon
 
     def get_longitude(self, index):
         return self._lon[index]
 
-    def get_lat(self):
+    @property
+    def lat(self):
         return self._lat
 
     def get_latitude(self, index):
         return self._lat[index]
 
-    def get_depth(self):
+    @property
+    def depth(self):
         return self._depth
 
     def get_depth_value(self, index):
         return self._depth[index]
 
-    def get_pid(self):
+    @property
+    def maxID(self):
         return self._maxID
 
     def get_particle_id(self, index):
@@ -69,10 +80,12 @@ class RepeatParameters(object):
             return None
         return self._maxID+index
 
-    def get_pclass(self):
-        return
+    @property
+    def pclass(self):
+        return self._pclass
 
-    def get_partitions(self):
+    @property
+    def partitions(self):
         return self._partitions
 
 
@@ -153,8 +166,16 @@ class ParticleSet(object):
             return node
         return None
 
-    def set_kernel_class(self, kclass):
-        self._kclass = kclass
+    # def set_kernel_class(self, kclass):
+    #     self._kclass = kclass
+
+    @property
+    def kernel_class(self):
+        return self._kclass
+
+    @kernel_class.setter
+    def kernel_class(self, value):
+        self._kclass = value
 
     @property
     def size(self):
@@ -162,6 +183,14 @@ class ParticleSet(object):
 
     @property
     def data(self):
+        return self._nodes
+
+    @property
+    def particles(self):
+        return self._nodes
+
+    @property
+    def particle_data(self):
         return self._nodes
 
     @property
@@ -191,7 +220,9 @@ class ParticleSet(object):
 
     def get_by_id(self, id):
         """
-        divide-and-conquer search of SORTED list
+        divide-and-conquer search of SORTED list - needed because the node list internally
+        can only be scanned for (a) its list index (non-coherent) or (b) a node itself, but not for a specific
+        Node property alone. That is why using the 'bisect' module alone won't work.
         :param id: search Node ID
         :return: Node attached to ID
         """
@@ -214,8 +245,8 @@ class ParticleSet(object):
     def get_particle(self, index):
         return self.get(index).data
 
-    def retrieve_item(self, key):
-        return self.get(key)
+    #def retrieve_item(self, key):
+    #    return self.get(key)
 
     def __getitem__(self, key):
         if key >= 0 and key < len(self._nodes):
@@ -224,7 +255,9 @@ class ParticleSet(object):
 
     def __setitem__(self, key, value):
         """
-
+        Sets the 'data' portion of the Node list. Replacing the Node itself is error-prone,
+        but it is possible to replace the data container (i.e. the particle data) or a specific
+        Node.
         :param key: index (int; np.int32) or Node
         :param value: particle data of the particle class
         :return: modified Node
@@ -266,14 +299,26 @@ class ParticleSet(object):
             return index
         return None
 
+    def __isub__(self, ndata):
+        self.remove(ndata)
+        return self
+
     def remove(self, ndata):
+        """
+        Removes a specific Node from the list. The Node can either be given directly or determined via it's index
+        or it's data package (i.e. particle data). When using the index, note though that Nodes are shifting
+        (non-coherent indices), so the reliable method is to provide the Node to-be-removed directly
+        (similar to an iterator in C++).
+        :param ndata: Node object, Particle object or int index to the Node to-be-removed
+        """
         if ndata is None:
             pass
-        # if isinstance(ndata, list) or (isinstance(ndata, np.ndarray) and ndata.dtype is np.int32):
         elif isinstance(ndata, list) or isinstance(ndata, np.ndarray):
             self.remove_entities(ndata) # remove multiple instances
-        else:
+        elif isinstance(ndata, self._nclass):
             self.remove_entity(ndata)
+        else:
+            pass
 
     def remove_entity(self, ndata):
         if isinstance(ndata, int) or isinstance(ndata, np.int32):
@@ -297,6 +342,31 @@ class ParticleSet(object):
         for ndata in rm_list:
             self.remove_entity(ndata)
 
+    def merge(self, key1, key2):
+        pass
+
+    def split(self, key):
+        """
+        splits a node, returning the result 2 new nodes
+        :param key: index (int; np.int32), Node
+        :return: 'node1, node2' or 'index1, index2'
+        """
+        pass
+
+    def pop(self, idx=-1, deepcopy_elem=False):
+        return self._nodes.pop(idx, deepcopy_elem)
+
+    def insert(self, node_or_pdata):
+        """
+        Inserts new data in the list - position is auto-determined (semantically equal to 'add')
+        :param node_or_pdata: new Node or pdata
+        :return: index of inserted node
+        """
+        return self.add(node_or_pdata)
+
+    # ==== high-level functions to execute operations (Add, Delete, Merge, Split) requested by the ==== #
+    # ==== internal :variables Particle.state of each Node.                                        ==== #
+
     def get_deleted_item_indices(self):
         indices = [i for i, n in enumerate(self._nodes) if n.data.state == ErrorCode.Delete]
         return indices
@@ -314,28 +384,6 @@ class ParticleSet(object):
             if node.data.state == ErrorCode.Delete:
                 self._nodes.remove(node)
             node = next_node
-
-    def pop(self, idx=-1, deepcopy_elem=False):
-        return self._nodes.pop(idx, deepcopy_elem)
-
-    def insert(self, node_or_pdata):
-        """
-        Inserts new data in the list - position is auto-determined
-        :param node_or_pdata: new Node or pdata
-        :return: index of inserted node
-        """
-        return self.add(node_or_pdata)
-
-    def merge(self, key1, key2):
-        pass
-
-    def split(self, key):
-        """
-        splits a node, returning the result 2 new nodes
-        :param key: index (int; np.int32), Node
-        :return: 'node1, node2' or 'index1, index2'
-        """
-        pass
 
     def execute(self, pyfunc=DoNothing, endtime=None, runtime=None, dt=1.,
                 recovery=None, output_file=None, verbose_progress=None):

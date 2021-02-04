@@ -12,12 +12,12 @@ import numpy as np
 #from parcels.field import SummedField
 #from parcels.field import VectorField
 #from parcels.tools.loggers import logger
-from parcels_mocks import Field
-from parcels_mocks import NestedField
-from parcels_mocks import SummedField
-from parcels_mocks import VectorField
+from parcels_nodes.parcels_mocks import Field
+from parcels_nodes.parcels_mocks import NestedField
+from parcels_nodes.parcels_mocks import SummedField
+from parcels_nodes.parcels_mocks import VectorField
 
-from Node import Node, NodeJIT
+from parcels_nodes.Node import Node, NodeJIT
 
 
 class IntrinsicNode(ast.AST):

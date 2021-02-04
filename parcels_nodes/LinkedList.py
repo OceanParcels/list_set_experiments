@@ -1,5 +1,5 @@
-from Node import *
-import package_globals
+from parcels_nodes.Node import *
+from parcels_nodes import package_globals
 from sortedcontainers import SortedList
 from copy import copy, deepcopy
 import gc

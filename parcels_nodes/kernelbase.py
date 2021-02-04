@@ -41,8 +41,8 @@ except:
 #from parcels.tools.loggers import logger
 #from parcels.tools.error import ErrorCode
 
-from codegenerator import KernelGenerator, LoopGenerator, NodeLoopGenerator
-from package_globals import get_cache_dir
+from parcels_nodes.codegenerator import KernelGenerator, LoopGenerator, NodeLoopGenerator
+from parcels_nodes.package_globals import get_cache_dir
 # from parcels_mocks import Field
 # from parcels_mocks import NestedField
 # from parcels_mocks import SummedField
@@ -148,11 +148,15 @@ class BaseKernel(object):
             if MPI:
                 mpi_comm = MPI.COMM_WORLD
                 mpi_rank = mpi_comm.Get_rank()
-                basename = path.join(get_cache_dir(), self._cache_key) if mpi_rank == 0 else None
+                filename = "lib"+self._cache_key
+                #basename = path.join(get_cache_dir(), self._cache_key) if mpi_rank == 0 else None
+                basename = path.join(get_cache_dir(), filename) if mpi_rank == 0 else None
                 basename = mpi_comm.bcast(basename, root=0)
                 basename = basename + "_%d" % mpi_rank
             else:
-                basename = path.join(get_cache_dir(), "%s_0" % self._cache_key)
+                filename = "lib" + self._cache_key
+                #basename = path.join(get_cache_dir(), "%s_0" % self._cache_key)
+                basename = path.join(get_cache_dir(), "%s_0" % filename)
 
             self.src_file = "%s.c" % basename
             self.lib_file = "%s.%s" % (basename, 'dll' if platform == 'win32' else 'so')
@@ -415,7 +419,7 @@ class BaseFieldKernel(BaseKernel):
             self.const_args = kernelgen.const_args
 
             # loopgen = LoopGenerator(ptype)
-            loopgen = NodeLoopGenerator(ptype)
+            loopgen = NodeLoopGenerator(ptype, fieldset=self.fieldset)
 
             if path.isfile(c_include):
                 with open(c_include, 'r') as f:

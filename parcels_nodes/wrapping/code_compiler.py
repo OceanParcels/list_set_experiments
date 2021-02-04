@@ -8,7 +8,7 @@ from weakref import finalize
 #from copy import deepcopy
 import os
 import sys
-import package_globals
+from parcels_nodes import package_globals
 from struct import calcsize
 from time import sleep
 
@@ -30,8 +30,12 @@ class LibraryRegisterC:
             del entry
 
     def load(self, libname):
+        pkg_path = package_globals.get_package_dir()
+        # print("PACKAGE PATH: {}".format(pkg_path))
         if libname not in self._data.keys():
-            self._data[libname] = InterfaceC("node")
+            self._data[libname] = InterfaceC("node",
+                                             relative_src_path=os.path.join(pkg_path, "src"),
+                                             relative_include_path=os.path.join(pkg_path, "include"))
         if not self._data[libname].is_compiled():
             self._data[libname].compile_library()
         if not self._data[libname].is_loaded():
@@ -66,7 +70,7 @@ class LibraryRegisterC:
 
 class InterfaceC:
 
-    def __init__(self, c_file_name):
+    def __init__(self, c_file_name, relative_src_path, relative_include_path):
         basename = c_file_name
         lib_path = basename
         lib_pathfile = os.path.basename(basename)
@@ -75,10 +79,11 @@ class InterfaceC:
             lib_pathfile = "lib"+lib_pathfile
             lib_path = os.path.join(lib_pathdir, lib_pathfile)
         self.src_file = "%s.c" % basename
+        self.src_file = os.path.join(relative_src_path, self.src_file)
         self.lib_file = "%s.%s" % (lib_path, 'dll' if sys.platform == 'win32' else 'so')
         self.log_file = "%s.log" % basename
 
-        self.compiler = GNUCompiler()
+        self.compiler = GNUCompiler(incdirs=[relative_include_path,])
         self.compiled = False
         self.loaded = False
         self.libc = None

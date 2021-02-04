@@ -1,6 +1,7 @@
-from LinkedList import *
-from Node import *
-import package_globals
+from parcels_nodes.LinkedList import *
+from parcels_nodes.Node import *
+from parcels_nodes.NodeC import NodeC
+from parcels_nodes import package_globals
 from time import time as real_time
 from time import perf_counter
 from time import process_time
@@ -10,11 +11,11 @@ import numpy
 from copy import deepcopy
 import math
 
-from particle import JITParticle, ScipyParticle
-from parcels_mocks import *
+from parcels_nodes.particle import JITParticle, ScipyParticle
+from parcels_nodes.parcels_mocks import *
 
-from particleset_node import ParticleSet
-from kernel import NodeFieldKernel, NodeNoFieldKernel, DoNothing, PrintKernel
+from parcels_nodes.particleset_node import ParticleSet
+from parcels_nodes.kernel import NodeFieldKernel, NodeNoFieldKernel, DoNothing, PrintKernel
 
 from datetime import timedelta
 
@@ -83,12 +84,12 @@ if __name__ == '__main__':
     random.seed(int(real_time().is_integer()))
     with_numpy = True
     #N = 2 ** 20
-    #N = 2 ** 18
-    #-N = 2 ** 16
+    N = 2 ** 18
+    #N = 2 ** 16 # good measure
     #N = 2 ** 14
     #N = 2 ** 12
     #N = 2 ** 10
-    N = 2 ** 4
+    #N = 2 ** 4
 
     time = numpy.arange(0, timedelta(days=365).total_seconds(), timedelta(days=10).total_seconds(), dtype=numpy.float64)
     grid = Grid(time, 2, 2, 2, time.shape[0])
@@ -104,6 +105,7 @@ if __name__ == '__main__':
     package_globals.idgen.preGenerateIDs(N)
     package_globals.idgen.permuteIDs()
 
+    print("===========================================================================")
     stime = process_time()
 
     # dbl_list = OrderedList(dtype=NodeJIT)
@@ -122,11 +124,12 @@ if __name__ == '__main__':
         # real_list.insert(node)
     etime = process_time()
     print("Time adding {} particles (RealList): {}".format(N, etime-stime))
+
     #print("len(list): {}".format(len(dbl_list)))
     #print([str(v) for v in dbl_list])
-    for i, n in enumerate(real_list):
-        if i<3:
-            print(n)
+    #for i, n in enumerate(real_list):
+    #    if i<3:
+    #        print(n)
 
     stime = process_time()
     iter = 0
@@ -156,6 +159,60 @@ if __name__ == '__main__':
     #print([str(v) for v in dbl_list])
     del real_list
     real_list = None
+    print("===========================================================================")
+    stime = process_time()
+    # dbl_list = OrderedList(dtype=NodeJIT)
+    # dbl_list = OrderedList(dtype=Node)
+    realc_list = RealList(dtype=NodeC)
+    # real_list = RealList(dtype=Node)
+    print("Real list (NodeC) created.")
+    while len(realc_list) < N:
+        n = len(realc_list)
+        index = package_globals.idgen.nextID()
+        node = NodeC(id=int(index), data=JITParticle(lon=random.random_sample(), lat=random.random_sample(), pid=int(index), fieldset=fieldset, depth=random.random_sample(), time=0))
+        # print("Node {} created: {} (next: {}; prev {})".format(index, node, node.next, node.prev))
+        # node = Node(id=int(index))
+
+        realc_list.add(node)
+        # real_list.insert(node)
+        # print("Node {} appended: {} (next: {}; prev {})".format(index, node, node.next, node.prev))
+    etime = process_time()
+    print("Time adding {} particles (RealList): {}".format(N, etime-stime))
+
+    #print("len(list): {}".format(len(dbl_list)))
+    #print([str(v) for v in dbl_list])
+    #for i, n in enumerate(realc_list):
+    #    if i<3:
+    #        print(n)
+
+    stime = process_time()
+    iter = 0
+    while iter < N:
+        #print("=========================")
+        n = len(realc_list)
+        index = numpy.random.randint(0, n)
+        # search_node = real_list[index]
+        # real_list.remove(search_node)
+
+        search_node = realc_list.pop(index)
+        #search_node = real_list.popitem(index)
+
+
+        # del real_list[index]
+        # index = package_globals.idgen.nextID()
+        # search_node = NodeJIT(id=index)
+        # search_node = Node(id=index)
+
+        realc_list.add(search_node)
+        # real_list.insert(search_node)
+
+        iter += 1
+    etime = process_time()
+    print("Time delete and insert {} particles (RealList): {}".format(N, etime-stime))
+    #print("len(list): {}".format(len(dbl_list)))
+    #print([str(v) for v in dbl_list])
+    del realc_list
+    realc_list = None
     print("===========================================================================")
 
     stime = process_time()
@@ -249,56 +306,58 @@ if __name__ == '__main__':
         del np_list
     print("===========================================================================")
 
-    nclass = Node
-    # nclass = NodeJIT
-    pclass = ScipyParticle
-    # pclass = JITParticle
-    real_pset_py = ParticleSet(fieldset, pclass, lonlatdepth_dtype=numpy.float32)
-    real_pset_py.set_kernel_class(NodeFieldKernel)
-    print("Real ParticleSet (non-JIT) created.")
+    execute_nonjit = False
+    if execute_nonjit:
+        nclass = Node
+        # nclass = NodeJIT
+        pclass = ScipyParticle
+        # pclass = JITParticle
+        real_pset_py = ParticleSet(fieldset, pclass, lonlatdepth_dtype=numpy.float32)
+        real_pset_py.kernel_class = NodeFieldKernel
+        print("Real ParticleSet (non-JIT) created.")
 
-    stime = process_time()
-    while len(real_pset_py) < N:
-        n = len(real_pset_py)
-        index = package_globals.idgen.nextID()
-        node = nclass(id=int(index), data=pclass(lon=random.random_sample(), lat=random.random_sample(), pid=int(index), fieldset=fieldset, depth=random.random_sample(), time=0))
-        # node = Node(id=int(index))
-        real_pset_py.add(node)
-    etime = process_time()
-    print("Time adding {} particles (Real ParticleSet (non-JIT)): {}".format(N, etime-stime))
-    #print("len(list): {}".format(len(dbl_list)))
-    #print([str(v) for v in dbl_list])
+        stime = process_time()
+        while len(real_pset_py) < N:
+            n = len(real_pset_py)
+            index = package_globals.idgen.nextID()
+            node = nclass(id=int(index), data=pclass(lon=random.random_sample(), lat=random.random_sample(), pid=int(index), fieldset=fieldset, depth=random.random_sample(), time=0))
+            # node = Node(id=int(index))
+            real_pset_py.add(node)
+        etime = process_time()
+        print("Time adding {} particles (Real ParticleSet (non-JIT)): {}".format(N, etime-stime))
+        #print("len(list): {}".format(len(dbl_list)))
+        #print([str(v) for v in dbl_list])
 
-    stime = process_time()
-    iter = 0
-    while iter < N:
-        n = len(real_pset_py)
-        index = numpy.random.randint(0, n)
-        search_node = real_pset_py.pop(index)
-        real_pset_py.add(search_node)
+        stime = process_time()
+        iter = 0
+        while iter < N:
+            n = len(real_pset_py)
+            index = numpy.random.randint(0, n)
+            search_node = real_pset_py.pop(index)
+            real_pset_py.add(search_node)
 
-        iter += 1
-    etime = process_time()
-    print("Time delete and insert {} particles (Real ParticleSet (non-JIT)): {}".format(N, etime-stime))
-    #print("len(list): {}".format(len(dbl_list)))
-    #print([str(v) for v in dbl_list])
+            iter += 1
+        etime = process_time()
+        print("Time delete and insert {} particles (Real ParticleSet (non-JIT)): {}".format(N, etime-stime))
+        #print("len(list): {}".format(len(dbl_list)))
+        #print([str(v) for v in dbl_list])
 
 
-    stime = process_time()
-    cmp_index = numpy.random.randint(0, len(real_pset_py))
-    cmp_node = real_pset_py[cmp_index]
-    cmp_time_s = cmp_node.data.time
-    #real_pset.Kernel(PrintKernel)
-    real_pset_py.execute(PrintKernel, endtime=timedelta(days=1).total_seconds(), dt=timedelta(minutes=30).total_seconds(), verbose_progress=True)
-    cmp_time_e = cmp_node.data.time
-    print("Particle {} - starttime: {}; endtime: {}".format(cmp_node.id, cmp_time_s, cmp_time_e))
-    etime = process_time()
-    n_iter = math.ceil(timedelta(days=1).total_seconds() / timedelta(minutes=5).total_seconds())
-    print("Time executing {} particles (# iterations = {}) (Real ParticleSet (non-JIT)): {}".format(N, n_iter, etime-stime))
+        stime = process_time()
+        cmp_index = numpy.random.randint(0, len(real_pset_py))
+        cmp_node = real_pset_py[cmp_index]
+        cmp_time_s = cmp_node.data.time
+        #real_pset.Kernel(PrintKernel)
+        real_pset_py.execute(PrintKernel, endtime=timedelta(days=1).total_seconds(), dt=timedelta(minutes=30).total_seconds(), verbose_progress=True)
+        cmp_time_e = cmp_node.data.time
+        print("Particle {} - starttime: {}; endtime: {}".format(cmp_node.id, cmp_time_s, cmp_time_e))
+        etime = process_time()
+        n_iter = math.ceil(timedelta(days=1).total_seconds() / timedelta(minutes=5).total_seconds())
+        print("Time executing {} particles (# iterations = {}) (Real ParticleSet (non-JIT)): {}".format(N, n_iter, etime-stime))
 
-    del real_pset_py
-    real_pset_py = None
-    print("===========================================================================")
+        del real_pset_py
+        real_pset_py = None
+        print("===========================================================================")
 
     # nclass = Node
     nclass = NodeJIT
@@ -307,7 +366,7 @@ if __name__ == '__main__':
     #real_pset = ParticleSet(None, pclass, lonlatdepth_dtype=numpy.float32)
     #real_pset.set_kernel_class(NodeNoFieldKernel)
     real_pset = ParticleSet(fieldset, pclass, lonlatdepth_dtype=numpy.float32)
-    real_pset.set_kernel_class(NodeFieldKernel)
+    real_pset.kernel_class = NodeFieldKernel
     print("Real ParticleSet created.")
 
     stime = process_time()

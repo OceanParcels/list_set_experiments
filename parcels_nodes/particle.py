@@ -4,9 +4,9 @@ from operator import attrgetter
 import numpy as np
 
 #from parcels.field import Field
-from parcels_mocks import Field
+from parcels_nodes.parcels_mocks import Field
 #from parcels.tools.error import ErrorCode
-from parcels_mocks import StatusCode as ErrorCode
+from parcels_nodes.parcels_mocks import StatusCode as ErrorCode
 
 
 __all__ = ['ScipyParticle', 'JITParticle', 'Variable']

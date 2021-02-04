@@ -11,15 +11,18 @@ import numpy as np
 # import numpy.ctypeslib as npct
 # from copy import deepcopy
 
-from kernelbase import BaseFieldKernel, BaseNoFieldKernel
+from parcels_nodes.kernelbase import BaseFieldKernel, BaseNoFieldKernel
 
 # from codegenerator import KernelGenerator, LoopGenerator
-from compiler import get_cache_dir
+# from compiler import get_cache_dir
+
 # from parcels_mocks import Field
-from parcels_mocks import NestedField
-from parcels_mocks import SummedField
-from parcels_mocks import VectorField
-from parcels_mocks import StatusCode as ErrorCode
+
+# from parcels_nodes.package_globals import get_cache_dir
+from parcels_nodes.parcels_mocks import NestedField
+from parcels_nodes.parcels_mocks import SummedField
+from parcels_nodes.parcels_mocks import VectorField
+from parcels_nodes.parcels_mocks import StatusCode as ErrorCode
 
 import math
 
@@ -98,10 +101,10 @@ class NodeNoFieldKernel(BaseNoFieldKernel):
         # back up variables in case of ErrorCode.Repeat
         p_var_back = {}
 
-        # for f in self.fieldset.get_fields():
-        #     if type(f) in [VectorField, NestedField, SummedField]:
-        #         continue
-        #     f.data = np.array(f.data)
+        #for f in self.fieldset.get_fields():
+        #    if type(f) in [VectorField, NestedField, SummedField]:
+        #        continue
+        #    f.data = np.array(f.data)
 
         # ========= OLD ======= #
         # for p in pset.particles:
@@ -112,51 +115,76 @@ class NodeNoFieldKernel(BaseNoFieldKernel):
             ptype = p.getPType()
             # Don't execute particles that aren't started yet
             sign_end_part = np.sign(endtime - p.time)
-            if (sign_end_part != sign_dt) and (dt != 0):
+            dt_pos = min(abs(p.dt), abs(endtime - p.time))
+
+            # ==== numerically stable; also making sure that continuously-recovered particles do end successfully,
+            # as they fulfil the condition here on entering at the final calculation here. ==== #
+            if ((sign_end_part != sign_dt) or np.isclose(dt_pos, 0)) and not np.isclose(dt, 0):
+                if abs(p.time) >= abs(endtime):
+                    p.state = ErrorCode.Success
                 node = node.next
                 continue
 
             # Compute min/max dt for first timestep
-            dt_pos = min(abs(p.dt), abs(endtime - p.time))
-            while dt_pos > 1e-6 or dt == 0:
+            # while dt_pos > 1e-6 or dt == 0:
+            while p.state in [ErrorCode.Evaluate, ErrorCode.Repeat] or np.isclose(dt, 0):
                 for var in ptype.variables:
                     p_var_back[var.name] = getattr(p, var.name)
                 try:
                     pdt_prekernels = sign_dt * dt_pos
                     p.dt = pdt_prekernels
+                    state_prev = p.state
+                    # res = self.pyfunc(p, None, p.time)
                     res = self.pyfunc(p, pset.fieldset, p.time)
-                #     res = self.pyfunc(p, None, p.time)
-                    if (res is None or res == ErrorCode.Success) and not np.isclose(p.dt, pdt_prekernels):
+                    if res is None:
+                        res = ErrorCode.Success
+
+                    if res is ErrorCode.Success and p.state != state_prev:
+                        res = p.state
+
+                    if res == ErrorCode.Success and not np.isclose(p.dt, pdt_prekernels):
                         res = ErrorCode.Repeat
-                # except FieldOutOfBoundError as fse:
-                #     res = ErrorCode.ErrorOutOfBounds
-                #     p.exception = fse
-                # except FieldOutOfBoundSurfaceError as fse_z:
-                #     res = ErrorCode.ErrorThroughSurface
-                #     p.exception = fse_z
+
+                #except FieldOutOfBoundError as fse_xy:
+                #    res = ErrorCode.ErrorOutOfBounds
+                #    p.exception = fse_xy
+                #except FieldOutOfBoundSurfaceError as fse_z:
+                #    res = ErrorCode.ErrorThroughSurface
+                #    p.exception = fse_z
+                #except TimeExtrapolationError as fse_t:
+                #    res = ErrorCode.ErrorTimeExtrapolation
+                #    p.exception = fse_t
                 except Exception as e:
                     res = ErrorCode.Error
                     p.exception = e
 
-                # Update particle state for explicit returns
-                if res is not None:
-                    p.state = res
-
                 # Handle particle time and time loop
-                if res is None or res == ErrorCode.Success:
+                if res in [ErrorCode.Success, ErrorCode.Delete]:
                     # Update time and repeat
                     p.time += p.dt
                     p.update_next_dt()
                     dt_pos = min(abs(p.dt), abs(endtime - p.time))
-                    if dt == 0:
+
+                    sign_end_part = np.sign(endtime - p.time)
+                    if res != ErrorCode.Delete and not np.isclose(dt_pos, 0) and (sign_end_part == sign_dt):
+                        res = ErrorCode.Evaluate
+                    if sign_end_part != sign_dt:
+                        dt_pos = 0
+
+                    p.state = res
+                    if np.isclose(dt, 0):
                         break
-                    continue
                 else:
+                    p.state = res
                     # Try again without time update
                     for var in ptype.variables:
                         if var.name not in ['dt', 'state']:
                             setattr(p, var.name, p_var_back[var.name])
                     dt_pos = min(abs(p.dt), abs(endtime - p.time))
+
+                    sign_end_part = np.sign(endtime - p.time)
+                    if sign_end_part != sign_dt:
+                        dt_pos = 0
                     break
             node = node.next
 
@@ -339,51 +367,76 @@ class NodeFieldKernel(BaseFieldKernel):
             ptype = p.getPType()
             # Don't execute particles that aren't started yet
             sign_end_part = np.sign(endtime - p.time)
-            if (sign_end_part != sign_dt) and (dt != 0):
+            dt_pos = min(abs(p.dt), abs(endtime - p.time))
+
+            # ==== numerically stable; also making sure that continuously-recovered particles do end successfully,
+            # as they fulfil the condition here on entering at the final calculation here. ==== #
+            if ((sign_end_part != sign_dt) or np.isclose(dt_pos, 0)) and not np.isclose(dt, 0):
+                if abs(p.time) >= abs(endtime):
+                    p.state = ErrorCode.Success
                 node = node.next
                 continue
 
             # Compute min/max dt for first timestep
-            dt_pos = min(abs(p.dt), abs(endtime - p.time))
-            while dt_pos > 1e-6 or dt == 0:
+            # while dt_pos > 1e-6 or dt == 0:
+            while p.state in [ErrorCode.Evaluate, ErrorCode.Repeat] or np.isclose(dt, 0):
                 for var in ptype.variables:
                     p_var_back[var.name] = getattr(p, var.name)
                 try:
                     pdt_prekernels = sign_dt * dt_pos
                     p.dt = pdt_prekernels
+                    state_prev = p.state
+                    # res = self.pyfunc(p, None, p.time)
                     res = self.pyfunc(p, pset.fieldset, p.time)
-                #     res = self.pyfunc(p, None, p.time)
-                    if (res is None or res == ErrorCode.Success) and not np.isclose(p.dt, pdt_prekernels):
+                    if res is None:
+                        res = ErrorCode.Success
+
+                    if res is ErrorCode.Success and p.state != state_prev:
+                        res = p.state
+
+                    if res == ErrorCode.Success and not np.isclose(p.dt, pdt_prekernels):
                         res = ErrorCode.Repeat
-                # except FieldOutOfBoundError as fse:
-                #     res = ErrorCode.ErrorOutOfBounds
-                #     p.exception = fse
-                # except FieldOutOfBoundSurfaceError as fse_z:
-                #     res = ErrorCode.ErrorThroughSurface
-                #     p.exception = fse_z
+
+                #except FieldOutOfBoundError as fse_xy:
+                #    res = ErrorCode.ErrorOutOfBounds
+                #    p.exception = fse_xy
+                #except FieldOutOfBoundSurfaceError as fse_z:
+                #    res = ErrorCode.ErrorThroughSurface
+                #    p.exception = fse_z
+                #except TimeExtrapolationError as fse_t:
+                #    res = ErrorCode.ErrorTimeExtrapolation
+                #    p.exception = fse_t
                 except Exception as e:
                     res = ErrorCode.Error
                     p.exception = e
 
-                # Update particle state for explicit returns
-                if res is not None:
-                    p.state = res
-
                 # Handle particle time and time loop
-                if res is None or res == ErrorCode.Success:
+                if res in [ErrorCode.Success, ErrorCode.Delete]:
                     # Update time and repeat
                     p.time += p.dt
                     p.update_next_dt()
                     dt_pos = min(abs(p.dt), abs(endtime - p.time))
-                    if dt == 0:
+
+                    sign_end_part = np.sign(endtime - p.time)
+                    if res != ErrorCode.Delete and not np.isclose(dt_pos, 0) and (sign_end_part == sign_dt):
+                        res = ErrorCode.Evaluate
+                    if sign_end_part != sign_dt:
+                        dt_pos = 0
+
+                    p.state = res
+                    if np.isclose(dt, 0):
                         break
-                    continue
                 else:
+                    p.state = res
                     # Try again without time update
                     for var in ptype.variables:
                         if var.name not in ['dt', 'state']:
                             setattr(p, var.name, p_var_back[var.name])
                     dt_pos = min(abs(p.dt), abs(endtime - p.time))
+
+                    sign_end_part = np.sign(endtime - p.time)
+                    if sign_end_part != sign_dt:
+                        dt_pos = 0
                     break
             node = node.next
 

@@ -1,9 +1,10 @@
 import ctypes
 import sys
-import package_globals
-from wrapping import *
+import parcels_nodes.package_globals
+from parcels_nodes.wrapping import *
+from parcels_nodes import package_globals
 
-from particle import JITParticle, ScipyParticle
+from parcels_nodes.particle import JITParticle, ScipyParticle
 
 class Node(object):
     prev = None
